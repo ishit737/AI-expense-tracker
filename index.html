@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Expense Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="w-full max-w-xl mx-auto bg-white min-h-screen shadow-lg p-4 sm:p-6">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">AI Expense Tracker</h1>
+            <p class="text-gray-500 mt-2">Upload a receipt image to automatically extract expense details.</p>
+        </div>
+
+        <!-- Image Upload Section -->
+        <div class="mb-6">
+            <label for="receipt-upload" class="block text-sm font-medium text-gray-700 mb-2">Receipt Image:</label>
+            <div id="image-drop-zone" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                <div id="upload-prompt" class="space-y-1 text-center">
+                     <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="flex text-sm text-gray-600">
+                        <label for="receipt-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                            <span>Upload a file</span>
+                            <input id="receipt-upload" name="receipt-upload" type="file" class="sr-only" accept="image/*">
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                </div>
+                 <img id="image-preview" src="" alt="Receipt Preview" class="hidden max-h-48 rounded-md mx-auto"/>
+            </div>
+        </div>
+
+        <button id="process-button" disabled class="w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            Process Receipt
+        </button>
+        
+        <!-- Status & Results Section -->
+        <div id="status-container" class="text-center mt-4 hidden">
+            <div class="flex items-center justify-center">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6 mr-3"></div>
+                <p id="status-message" class="text-gray-600"></p>
+            </div>
+        </div>
+        
+        <div id="error-message" class="hidden mt-4 p-4 bg-red-100 text-red-700 rounded-lg"></div>
+
+        <div id="result-form" class="hidden mt-6 bg-gray-50 p-6 rounded-lg">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Extracted Details</h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="merchant" class="block text-sm font-medium text-gray-700">Merchant</label>
+                    <input type="text" id="merchant" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="total" class="block text-sm font-medium text-gray-700">Total Amount</label>
+                    <input type="number" step="0.01" id="total" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700">Date</label>
+                    <input type="date" id="date" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                 <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select id="category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option>Groceries</option>
+                        <option>Dining</option>
+                        <option>Transport</option>
+                        <option>Shopping</option>
+                        <option>Utilities</option>
+                        <option>Entertainment</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+            </div>
+            <button id="save-button" class="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Save Expense
+            </button>
+        </div>
+        
+        <!-- Expenses List Section -->
+        <div class="mt-10">
+            <div class="flex justify-between items-center mb-4">
+                 <h2 class="text-xl font-semibold text-gray-800">History</h2>
+                 <div class="text-right">
+                     <p class="text-sm text-gray-500">Total Spent</p>
+                     <p id="total-expenses" class="text-2xl font-bold text-indigo-600">₹0.00</p>
+                 </div>
+            </div>
+            <div id="expenses-list" class="space-y-4">
+                <p id="no-expenses-message" class="text-gray-500 text-center py-4">No expenses saved yet.</p>
+                <!-- Expenses will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Firebase SDK Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DOM Element References ---
+        const imageDropZone = document.getElementById('image-drop-zone');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const imageUploadInput = document.getElementById('receipt-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const processButton = document.getElementById('process-button');
+        const statusContainer = document.getElementById('status-container');
+        const statusMessage = document.getElementById('status-message');
+        const errorMessage = document.getElementById('error-message');
+        const resultForm = document.getElementById('result-form');
+        const merchantInput = document.getElementById('merchant');
+        const totalInput = document.getElementById('total');
+        const dateInput = document.getElementById('date');
+        const categoryInput = document.getElementById('category');
+        const saveButton = document.getElementById('save-button');
+        const expensesList = document.getElementById('expenses-list');
+        const noExpensesMessage = document.getElementById('no-expenses-message');
+        const totalExpensesEl = document.getElementById('total-expenses');
+
+        // --- App State ---
+        let selectedFile = null;
+        let base64ImageData = "";
+        let db, auth, userId, isAuthReady = false;
+
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // --- Firebase Configuration and Initialization ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ai-expense-tracker-app';
+        let firebaseConfig;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch (e) {
+            console.error("Firebase config is not valid JSON:", __firebase_config);
+            showError("Firebase configuration is invalid. Please check your setup.");
+        }
+
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setupAuthListener();
+            } catch (e) {
+                console.error("Error initializing Firebase:", e);
+                showError("Could not connect to the database. Please try again later.");
+            }
+        } else {
+             showError("Firebase is not configured. Saved expenses will not work.");
+        }
+        
+        // --- Authentication ---
+        function setupAuthListener() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    isAuthReady = true;
+                    console.log("User authenticated with UID:", userId);
+                    loadExpenses();
+                } else {
+                    console.log("No user signed in. Attempting to sign in.");
+                    try {
+                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                         } else {
+                            await signInAnonymously(auth);
+                         }
+                    } catch (error) {
+                         console.error("Anonymous sign-in failed:", error);
+                         showError("Authentication failed. You won't be able to save data.");
+                    }
+                }
+            });
+        }
+
+
+        // --- Image Upload and Preview Logic ---
+        function handleFileSelect(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            selectedFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.remove('hidden');
+                uploadPrompt.classList.add('hidden');
+                base64ImageData = e.target.result.split(',')[1];
+                processButton.disabled = false;
+                hideError();
+                resultForm.classList.add('hidden');
+            };
+            reader.readAsDataURL(selectedFile);
+        }
+        
+        imageUploadInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        
+        // Drag and Drop functionality
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            imageDropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        imageDropZone.addEventListener('dragenter', () => imageDropZone.classList.add('border-indigo-500'));
+        imageDropZone.addEventListener('dragleave', () => imageDropZone.classList.remove('border-indigo-500'));
+        imageDropZone.addEventListener('drop', (e) => {
+            imageDropZone.classList.remove('border-indigo-500');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        // --- Core AI Processing Logic ---
+        const processReceipt = async () => {
+            if (!base64ImageData) {
+                showError("Please select an image first.");
+                return;
+            }
+            
+            showStatus("Processing receipt...");
+            processButton.disabled = true;
+            resultForm.classList.add('hidden');
+            hideError();
+
+            const model = 'gemini-2.5-flash-preview-05-20';
+            const apiKey = ""; // Handled by environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            const prompt = `
+                You are an expert receipt scanning AI. Your task is to analyze the following receipt image and extract the following information in a structured JSON format:
+                1.  'merchant': The name of the store or business.
+                2.  'total': The final total amount paid. This should be a number, not a string.
+                3.  'date': The transaction date in 'YYYY-MM-DD' format. If you cannot determine the year, assume the current year is 2025.
+
+                Please respond with ONLY a valid JSON object. Do not include any other text, greetings, markdown formatting, or explanations.
+                If you cannot confidently find a piece of information, set its value to null.
+                Example response: {"merchant": "Walmart", "total": 25.50, "date": "2025-09-14"}
+            `;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: selectedFile.type,
+                                data: base64ImageData
+                            }
+                        }
+                    ]
+                }],
+            };
+
+            try {
+                const response = await fetchWithExponentialBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error?.message || 'Unknown error'}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                let text = candidate?.content?.parts?.[0]?.text;
+
+                if (!text) {
+                    throw new Error("The AI did not return any data. The receipt might be unreadable.");
+                }
+
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                const data = JSON.parse(text);
+                displayResult(data);
+                hideStatus();
+                
+            } catch (error) {
+                console.error("Error processing receipt:", error);
+                showError(`Failed to process receipt. ${error.message}`);
+                hideStatus();
+            } finally {
+                processButton.disabled = false;
+            }
+        };
+
+        processButton.addEventListener('click', processReceipt);
+
+        async function fetchWithExponentialBackoff(url, options, retries = 3, backoff = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status !== 429 && response.status < 500) return response;
+                    await new Promise(resolve => setTimeout(resolve, backoff * Math.pow(2, i)));
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, backoff * Math.pow(2, i)));
+                }
+            }
+             throw new Error("Request failed after multiple retries.");
+        }
+
+
+        // --- Firestore Data Management ---
+        const saveExpense = async () => {
+            if (!isAuthReady || !db) {
+                showError("Cannot save: Database not connected.");
+                return;
+            }
+
+            const expenseData = {
+                merchant: merchantInput.value,
+                total: parseFloat(totalInput.value),
+                date: dateInput.value,
+                category: categoryInput.value,
+                createdAt: new Date()
+            };
+
+            if (!expenseData.merchant || isNaN(expenseData.total) || !expenseData.date) {
+                showError("Please ensure Merchant, Total, and Date are filled correctly.");
+                return;
+            }
+
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+
+            try {
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/expenses`), expenseData);
+                console.log("Document written with ID: ", docRef.id);
+                resetForm();
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showError("Could not save the expense. Please try again.");
+            } finally {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Expense';
+            }
+        };
+        
+        saveButton.addEventListener('click', saveExpense);
+
+        function loadExpenses() {
+            if (!isAuthReady || !db) return;
+            const expensesRef = collection(db, `artifacts/${appId}/users/${userId}/expenses`);
+            const q = query(expensesRef);
+
+            onSnapshot(q, (querySnapshot) => {
+                const expenses = [];
+                querySnapshot.forEach((doc) => {
+                    expenses.push({ id: doc.id, ...doc.data() });
+                });
+                expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderExpenses(expenses);
+            }, (error) => {
+                console.error("Error loading expenses:", error);
+                showError("Could not load saved expenses.");
+            });
+        }
+        
+        async function deleteExpense(id) {
+            if (!isAuthReady || !db) return;
+             try {
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/expenses`, id));
+             } catch(error) {
+                 console.error("Error deleting expense:", error);
+                 showError("Failed to delete expense.");
+             }
+        }
+
+
+        // --- UI Update and Helper Functions ---
+        function showStatus(message) {
+            statusMessage.textContent = message;
+            statusContainer.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            statusContainer.classList.add('hidden');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+        
+        function displayResult(data) {
+            merchantInput.value = data.merchant || '';
+            totalInput.value = data.total || '';
+            dateInput.value = data.date || new Date().toISOString().split('T')[0];
+            resultForm.classList.remove('hidden');
+        }
+        
+        function renderExpenses(expenses) {
+            expensesList.innerHTML = ''; 
+            let total = 0;
+
+            if (expenses.length === 0) {
+                noExpensesMessage.classList.remove('hidden');
+            } else {
+                noExpensesMessage.classList.add('hidden');
+                
+                total = expenses.reduce((sum, exp) => sum + exp.total, 0);
+
+                const groupedExpenses = expenses.reduce((acc, expense) => {
+                    const date = new Date(expense.date).toDateString();
+                    if (!acc[date]) {
+                        acc[date] = [];
+                    }
+                    acc[date].push(expense);
+                    return acc;
+                }, {});
+
+                for (const date in groupedExpenses) {
+                    const dateHeader = document.createElement('h3');
+                    dateHeader.className = 'text-md font-semibold text-gray-600 mt-4 pb-1 border-b';
+                    dateHeader.textContent = getRelativeDate(date);
+                    expensesList.appendChild(dateHeader);
+
+                    groupedExpenses[date].forEach(expense => {
+                        const expenseElement = document.createElement('div');
+                        expenseElement.className = 'flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100';
+                        expenseElement.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                                    ${expense.merchant.charAt(0)}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">${expense.merchant}</p>
+                                    <p class="text-sm text-gray-500">${expense.category}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                               <p class="font-semibold text-md text-gray-800">₹${expense.total.toFixed(2)}</p>
+                               <button data-id="${expense.id}" class="delete-btn text-gray-400 hover:text-red-500">
+                                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                               </button>
+                            </div>
+                        `;
+                        expensesList.appendChild(expenseElement);
+                    });
+                }
+            }
+            totalExpensesEl.textContent = `₹${total.toFixed(2)}`;
+        }
+
+        function getRelativeDate(dateString) {
+            const date = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            
+            return date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        
+        expensesList.addEventListener('click', (e) => {
+            const deleteButton = e.target.closest('.delete-btn');
+            if(deleteButton) {
+                const id = deleteButton.dataset.id;
+                deleteExpense(id);
+            }
+        });
+
+        function resetForm() {
+            resultForm.classList.add('hidden');
+            imagePreview.classList.add('hidden');
+            uploadPrompt.classList.remove('hidden');
+            imageUploadInput.value = '';
+            selectedFile = null;
+            base64ImageData = '';
+            processButton.disabled = true;
+        }
+
+    </script>
+</body>
+</html>
+
